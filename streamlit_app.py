@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import random
 
 # Import backend utility modules
 import agents_engine
@@ -8,13 +9,21 @@ import domain_tools
 # --- CONFIGURATION ---
 st.set_page_config(page_title="SwiftSupport India", layout="centered")
 
+# NATURAL, GROUNDED ASSISTANT PHRASES
+OPERATIONAL_SPINNERS = [
+    "Swifty is thinking...",
+    "Looking into the details for you...",
+    "Checking the latest updates...",
+    "Reviewing your request...",
+    "Searching for the best answer..."
+]
+
 st.markdown("""
     <style>
-    /* 1. Structural Element Resets */
+    /* 1. Structural Canvas Polishing */
     div[data-testid="stAppDeployButton"] { display: none !important; }
     footer { visibility: hidden; }
     
-    /* 2. Premium Title Bar Accents */
     .portal-header {
         border-left: 5px solid #2563eb;
         padding-left: 16px;
@@ -22,24 +31,21 @@ st.markdown("""
         margin-top: 10px;
     }
     .portal-title {
-        font-size: 2.2rem;
-        font-weight: 800;
-        letter-spacing: -0.04em;
-        margin: 0;
-        line-height: 1.1;
+        font-size: 2.2rem !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.04em !important;
+        margin: 0 !important;
+        line-height: 1.1 !important;
     }
     
-    /* 3. High-Contrast Container Workspace Blocks */
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background-color: var(--secondary-background-color) !important;
         border: 1px solid rgba(128, 128, 128, 0.15) !important;
         border-radius: 12px !important;
         padding: 24px !important;
         margin-bottom: 24px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02) !important;
     }
 
-    /* 4. Form Action Buttons */
     button[kind="primary"] {
         background-color: #2563eb !important;
         color: #ffffff !important;
@@ -48,13 +54,9 @@ st.markdown("""
         padding: 0.55rem 2rem !important;
         border: none !important;
     }
-    button[kind="primary"]:hover {
-        background-color: #1d4ed8 !important;
-    }
+    button[kind="primary"]:hover { background-color: #1d4ed8 !important; }
 
-    /* =========================================================================
-       SWIFTY AI: SINGLE STANDALONE FLOATING ACTION PILL (Strict Geometries)
-       ========================================================================= */
+    /* SWIFTY AI: FLOATING ACTION PILL */
     @keyframes float-loop {
         0% { transform: translateY(0px); }
         50% { transform: translateY(-6px); }
@@ -66,7 +68,6 @@ st.markdown("""
         100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
     }
 
-    /* Fixed alignment limits to block any item stacking */
     div[data-testid="stPopover"] {
         position: fixed !important;
         bottom: 30px !important;
@@ -75,7 +76,6 @@ st.markdown("""
         z-index: 999999 !important;
     }
     
-    /* Formats the popover trigger window into a clean interactive pill */
     div[data-testid="stPopover"] > button {
         background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
         color: #ffffff !important;
@@ -88,27 +88,18 @@ st.markdown("""
         justify-content: center !important;
         border: none !important;
         font-weight: 700 !important;
-        font-size: 0.9rem !important;
-        
-        /* Smooth runtime animation tracking */
         animation: float-loop 3s ease-in-out infinite, pulse-ring 2s infinite;
     }
-    div[data-testid="stPopover"] > button:hover {
-        transform: scale(1.03) translateY(-1px) !important;
-        animation-play-state: paused !important;
-    }
     
-    /* Safely completely remove the caret drop arrow icon to protect width */
     div[data-testid="stPopover"] button svg, 
     div[data-testid="stPopover"] button [data-testid="stIcon"] {
         display: none !important;
     }
     
-    /* Chat popup overlay frame dimensions */
     div[data-testid="stPopoverWindow"] {
-        width: 385px !important;
+        width: 400px !important;
         border-radius: 16px !important;
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15) !important;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25) !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -122,88 +113,100 @@ st.markdown("""
     """, unsafe_allow_html=True)
 st.markdown("---")
 
-# API GATEWAY INITIALIZATION
 if "OPENROUTER_API_KEY" in st.secrets:
     api_key = st.secrets["OPENROUTER_API_KEY"]
 else:
-    st.error("Configuration Error: OPENROUTER_API_KEY is missing from Streamlit Secrets.")
+    st.error("Missing API Key configuration secrets.")
     st.stop()
 
-# --- SIDEBAR PANEL (Fonts Cleaned to Fix Icon Overlaps) ---
+# --- SIDEBAR PANEL ---
 with st.sidebar:
     st.header("Operations Desk")
-    st.success("Fulfillment Active")
+    st.success("Fulfillment Core Active")
     st.markdown("---")
     with st.expander("Fulfillment Handbook"):
         if os.path.exists("core_policy.txt"):
             with open("core_policy.txt", "r", encoding="utf-8") as f:
                 st.caption(f.read())
-        else:
-            st.caption("Logistics policy file not found.")
 
 # --- NAVIGATION FLOW: TABS INTERFACE ---
 tab_dashboard, tab_tools = st.tabs(["Dashboard Overview", "Operational Systems"])
 
-# --- TAB 1: DASHBOARD OVERVIEW ---
+# TAB 1: DASHBOARD OVERVIEW
 with tab_dashboard:
     with st.container(border=True):
         st.write("### Welcome to Order Operations")
         st.markdown(
-            "Use the **Operational Systems** tab above to access calculation tools and check courier network options. "
-            "For advanced automated queries, voice transcriptions, or visual evidence triage, open the integrated assistant "
-            "via the floating action pill in the bottom corner."
+            "Use the **Operational Systems** tab above to access real-time database lookups and tool computation logic sheets. "
+            "For automated case escalations or photo verification triage, launch the **Swifty AI** assistant pill floating in the bottom corner."
         )
 
-# --- TAB 2: OPERATIONAL SYSTEMS ---
+# TAB 2: OPERATIONAL SYSTEMS
 with tab_tools:
-    # Tool Node A: Return Processing Calculator
+    
+    # 1. LIVE LEDGER DISPATCH FINDER (Optimized Card Overhaul)
     with st.container(border=True):
-        st.subheader("Return Processing Calculator")
-        st.write("Calculate restocking fee adjustments based on the returned package's structural condition.")
+        st.subheader("🗄️ Real-Time Manifest Ledger Search")
+        st.write("Query the live operational database directly using tracking IDs to pull courier metrics.")
         
-        price = st.number_input("Original Order Value (INR):", min_value=0.0, value=1000.0, step=100.0, key="sys_price_field")
-        condition = st.radio("Returned Parcel Packaging Condition:", ["Sealed / Original Condition", "Opened / Damaged Packaging Box"], key="sys_cond_field")
+        search_id = st.text_input("Enter Active Tracking ID:", value="SWIFT-BLR-5601", placeholder="e.g. SWIFT-BOM-4002")
         
-        if st.button("Process Return Valuation", type="primary", key="sys_val_trigger"):
+        if st.button("Query Database Ledger", type="primary"):
+            record = domain_tools.lookup_mock_order(search_id)
+            st.markdown("---")
+            if record:
+                # Premium HTML injection cards that are fully immune to horizontal text-wrapping breaks
+                status_color = "#eab308" if "Delay" in record["status"] else ("#ef4444" if "Exception" in record["status"] else "#10b981")
+                bg_badge = "rgba(234, 179, 8, 0.1)" if "Delay" in record["status"] else ("rgba(239, 68, 68, 0.1)" if "Exception" in record["status"] else "rgba(16, 185, 129, 0.1)")
+                
+                st.markdown(f"""
+                    <div style="background-color: var(--background-color); padding: 18px; border: 1px solid rgba(128,128,128,0.2); border-radius: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <span style="font-size: 0.8rem; font-weight: 700; color: #64748b; letter-spacing: 0.05em; text-transform: uppercase;">Manifest Activity Record</span>
+                            <span style="background-color: {bg_badge}; color: {status_color}; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700;">{record['status']}</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px;">
+                            <div>
+                                <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; margin-bottom: 2px;">Destination Hub</div>
+                                <div style="font-size: 1.1rem; font-weight: 700;">{record['destination']}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; margin-bottom: 2px;">Assigned Courier</div>
+                                <div style="font-size: 1.1rem; font-weight: 700;">{record['carrier']}</div>
+                            </div>
+                        </div>
+                        <div style="background-color: rgba(37, 99, 235, 0.05); border-left: 3px solid #2563eb; padding: 12px; border-radius: 4px;">
+                            <div style="font-size: 0.75rem; color: #2563eb; font-weight: 700; margin-bottom: 4px;">Live Telemetry Details</div>
+                            <div style="font-size: 0.9rem; line-height: 1.45;">{record['details']}</div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.error("❌ Tracking ID anomaly: Record missing or archived in central cluster vaults.")
+
+    # 2. Return Processing Calculator
+    with st.container(border=True):
+        st.subheader("🧮 Return Processing Calculator")
+        price = st.number_input("Original Order Value (INR):", min_value=0.0, value=1000.0, step=100.0)
+        condition = st.radio("Returned Parcel Packaging Condition:", ["Sealed / Original Condition", "Opened / Damaged Packaging Box"])
+        
+        if st.button("Process Return Valuation"):
             is_damaged = condition == "Opened / Damaged Packaging Box"
             fee = domain_tools.calculate_restocking_fee(price, is_damaged)
-            total_refund = price - fee
-            
             st.markdown("---")
             c1, c2 = st.columns(2)
             c1.metric("Restocking Fee Deduction", f"₹{fee:,.2f}")
-            c2.metric("Net Refund Issued", f"₹{total_refund:,.2f}")
-
-    # Tool Node B: Dispatch Routing Engine
-    with st.container(border=True):
-        st.subheader("Dispatch Routing Engine")
-        st.write("Look up the designated logistics carrier assigned to transport orders to your target destination.")
-        
-        dest = st.text_input("Enter Delivery Destination (City or Country):", placeholder="e.g. Mumbai", key="sys_dest_field")
-        
-        if st.button("Route Shipment", type="primary", key="sys_route_trigger") and dest:
-            st.markdown("---")
-            if any(city in dest.lower() for city in ["mumbai", "delhi", "bengaluru", "chennai", "india"]):
-                st.info("Designated Domestic Courier: **Delhivery Express / Blue Dart Network**")
-            else:
-                partner = domain_tools.evaluate_shipping_carrier(dest)
-                st.info(f"Designated Export Courier: **{partner} Logistics Hub**")
+            c2.metric("Net Refund Issued", f"₹{price - fee:,.2f}")
 
 # =========================================================================
-# STANDALONE FLOATING ASSISTANT WIDGET (Single, Contained Popover Pill)
+# FLOATING ASSISTANT WORKSPACE WIDGET (Swifty AI Popover Drawer)
 # =========================================================================
 with st.popover("🤖 Try Swifty AI"):
     st.markdown("### 🤖 Swifty AI Agent Network")
-    st.caption("Voice, Vision, and Autonomous Multimodal Intelligence Hub")
+    st.caption("Fulfillment intelligence with dynamic automated routing keys.")
     st.markdown("---")
     
-    # Multimodal File Input Fields
-    col_img, col_aud = st.columns(2)
-    with col_img:
-        attached_img = st.file_uploader("📸 Photo Triage", type=["png", "jpg", "jpeg"])
-    with col_aud:
-        attached_aud = st.file_uploader("🎙️ Voice Memo", type=["mp3", "wav", "m4a"])
-    
+    attached_img = st.file_uploader("📸 Upload Claims Photo Evidence:", type=["png", "jpg", "jpeg"])
     st.markdown("---")
     
     if "messages" not in st.session_state:
@@ -224,12 +227,13 @@ with st.popover("🤖 Try Swifty AI"):
             with st.chat_message("user"):
                 st.markdown(chat_input)
         
-        with st.spinner("Swifty Agents are analyzing inputs..."):
+        chosen_spinner = random.choice(OPERATIONAL_SPINNERS)
+        
+        with st.spinner(chosen_spinner):
             agent_response = agents_engine.process_agent_workflow(
                 api_key=api_key,
                 user_query=chat_input,
-                uploaded_image=attached_img,
-                uploaded_audio=attached_aud
+                uploaded_image_file=attached_img
             )
                 
         st.session_state.messages.append({"role": "assistant", "content": agent_response})

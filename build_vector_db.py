@@ -1,12 +1,10 @@
-import json
 import os
-import numpy as np
+import chromadb
 from openai import OpenAI
 
-# --- HARDENED API KEY GATEWAY RETRIEVAL ---
+# --- API KEY GATEWAY RETRIEVAL ---
 api_key = os.environ.get("OPENROUTER_API_KEY")
 
-# Automatically pull from your local Streamlit secrets file if running standalone
 if not api_key and os.path.exists(os.path.join(".streamlit", "secrets.toml")):
     try:
         with open(os.path.join(".streamlit", "secrets.toml"), "r", encoding="utf-8") as f:
@@ -17,13 +15,11 @@ if not api_key and os.path.exists(os.path.join(".streamlit", "secrets.toml")):
     except Exception as e:
         print(f"Note: Could not parse local secrets.toml file: {e}")
 
-if not api_key or api_key == "placeholder_key":
-    print("❌ Error: OPENROUTER_API_KEY is missing. Please check your secrets.toml configuration.")
-    st.stop() if "st" in globals() else exit()
+if not api_key:
+    print("❌ Error: OPENROUTER_API_KEY is missing from environment/secrets.toml.")
+    exit()
 
-# OpenRouter utilizes structured namespace routes for OpenAI embedding endpoints
 EMBEDDING_MODEL = "openai/text-embedding-3-small"
-
 client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
 
 def chunk_text(text, max_chars=300):
@@ -43,7 +39,7 @@ def chunk_text(text, max_chars=300):
         chunks.append(current_chunk.strip())
     return chunks
 
-def generate_embeddings():
+def generate_db_embeddings():
     if not os.path.exists("core_policy.txt"):
         print("❌ Error: core_policy.txt not found in this working directory.")
         return
@@ -51,15 +47,24 @@ def generate_embeddings():
     with open("core_policy.txt", "r", encoding="utf-8") as f:
         raw_text = f.read()
 
-    # 1. Semantic Chunking
+    # 1. Chunking Context Text Slices
     chunks = chunk_text(raw_text)
-    print(f"✨ Generated {len(chunks)} structural context chunks.")
+    print(f"✨ Generated {len(chunks)} structural context blocks.")
 
-    vector_database = []
+    # 2. Spin up Persistent Chroma DB Instance
+    chroma_client = chromadb.PersistentClient(path="./chroma_db")
+    
+    # Reset/Recreate the storage space to prevent duplicate stacking data records
+    try:
+        chroma_client.delete_collection(name="swift_support_policy")
+    except Exception:
+        pass
+        
+    collection = chroma_client.get_or_create_collection(name="swift_support_policy")
 
-    # 2. Vector Generation Loop
+    # 3. Vectorization & Database Registration Loop
     for i, chunk in enumerate(chunks):
-        print(f"Vectorizing chunk {i+1}/{len(chunks)}...")
+        print(f"Vectorizing chunk {i+1}/{len(chunks)} into database index...")
         try:
             response = client.embeddings.create(
                 model=EMBEDDING_MODEL,
@@ -67,19 +72,17 @@ def generate_embeddings():
             )
             embedding = response.data[0].embedding
             
-            vector_database.append({
-                "id": i,
-                "text": chunk,
-                "vector": embedding
-            })
+            # Formally commit data record natively directly into the database engine
+            collection.add(
+                embeddings=[embedding],
+                documents=[chunk],
+                ids=[f"id_{i}"]
+            )
         except Exception as e:
-            print(f"❌ Failed to generate embedding for chunk {i}: {e}")
+            print(f"❌ Failed to store index chunk {i}: {e}")
             return
 
-    # 3. Commit to Storage (Fixed parameter typo here)
-    with open("vector_store.json", "w", encoding="utf-8") as f:
-        json.dump(vector_database, f, ensure_ascii=False, indent=2)
-    print("🚀 Success: Vector database written cleanly to vector_store.json!")
+    print("🚀 Success: ChromaDB vector collections compiled safely into ./chroma_db!")
 
 if __name__ == "__main__":
-    generate_embeddings()
+    generate_db_embeddings()
