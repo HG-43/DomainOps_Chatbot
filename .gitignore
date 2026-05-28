@@ -14,6 +14,13 @@ ENV/
 *.jsonl
 *.log
 
+# General Secrets
+.env
+.env.local
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
 # IDE Configurations
 .vscode/
 .idea/
@@ -21,3 +28,6 @@ ENV/
 # System Files
 .DS_Store
 Thumbs.db
+
+# Block Streamlit production keys
+.streamlit/secrets.toml
