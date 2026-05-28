@@ -1,5 +1,8 @@
-import streamlit as st
 import os
+# High-priority patch to bypass the Streamlit Cloud Protobuf compatibility bug
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+
+import streamlit as st
 import random
 
 # Import backend utility modules
