@@ -25,6 +25,7 @@ MOCK_ORDER_DATABASE = {
 
 def lookup_mock_order(tracking_id):
     """Queries the operational database for a specific tracking profile."""
+    # Ensure this function name matches line 155 in your streamlit_app.py exactly
     return MOCK_ORDER_DATABASE.get(tracking_id.strip().upper(), None)
 
 def calculate_restocking_fee(price, is_damaged):
