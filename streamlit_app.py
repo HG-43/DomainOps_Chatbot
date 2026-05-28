@@ -1,16 +1,11 @@
 import streamlit as st
 import os
-from openai import OpenAI
 
 # Import backend utility modules
-import knowledge_rag
+import agents_engine
 import domain_tools
 
 # --- CONFIGURATION ---
-PRIMARY_MODEL = "meta-llama/llama-3.3-70b-instruct"
-FALLBACK_MODEL = "meta-llama/llama-3.2-3b-instruct"
-
-# --- REFINED LOGISTICS ENGINE STYLING ---
 st.set_page_config(page_title="SwiftSupport India", layout="centered")
 
 st.markdown("""
@@ -31,7 +26,6 @@ st.markdown("""
         font-weight: 700 !important;
         letter-spacing: -0.03em !important;
         margin: 0 !important;
-        padding: 0 !important;
         line-height: 1.1 !important;
     }
     
@@ -45,52 +39,20 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02) !important;
     }
 
-    /* 4. High-Contrast Primary Buttons (Logistics Blue) */
+    /* 4. High-Contrast Primary Buttons */
     button[kind="primary"] {
         background-color: #2563eb !important;
         color: #ffffff !important;
         border-radius: 6px !important;
-        border: none !important;
         font-weight: 600 !important;
-        font-size: 0.9rem !important;
         padding: 0.55rem 2rem !important;
-        box-shadow: 0 2px 5px rgba(37, 99, 235, 0.2) !important;
+        border: none !important;
     }
     button[kind="primary"]:hover {
         background-color: #1d4ed8 !important;
     }
     
-    /* 5. Suggestion Chips Layout (Sleek Bordered Badges) */
-    button[kind="secondary"] {
-        background-color: transparent !important;
-        color: var(--text-color) !important;
-        border: 1px solid rgba(128, 128, 128, 0.3) !important;
-        border-radius: 20px !important;
-        padding: 0.4rem 1.2rem !important;
-        font-size: 0.85rem !important;
-        font-weight: 500 !important;
-        width: 100% !important;
-    }
-    button[kind="secondary"]:hover {
-        background-color: rgba(37, 99, 235, 0.08) !important;
-        border-color: #2563eb !important;
-        color: #2563eb !important;
-    }
-    
-    /* 6. Form Label Hierarchy Fixes */
-    div[data-testid="stSelectbox"] label p {
-        font-size: 1.1rem !important;
-        font-weight: 600 !important;
-        color: var(--text-color) !important;
-        margin-bottom: 6px !important;
-    }
-    
-    /* 7. Native Container Integration Overrides */
-    div[data-testid="stNumberInput"], div[data-testid="stTextInput"] input, div[data-testid="stSelectbox"] > div {
-        border-radius: 6px !important;
-    }
-
-    /* 8. Clean Operational Status Elements */
+    /* 5. Clean Operational Status Elements */
     .status-badge {
         display: inline-flex;
         align-items: center;
@@ -112,51 +74,62 @@ st.markdown("""
     }
 
     /* =========================================================================
-       FIXED CORNER ASSISTANT: Pinpoints width boundaries to block spreading
+       SWIFTY AI: FLOATING ACTION PILL (Strict Chevron & Boundary Controls)
        ========================================================================= */
+    @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-8px); }
+        100% { transform: translateY(0px); }
+    }
+    @keyframes pulse-glow {
+        0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.6); }
+        70% { box-shadow: 0 0 0 12px rgba(37, 99, 235, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+    }
+
     div[data-testid="stPopover"] {
         position: fixed !important;
         bottom: 30px !important;
         right: 30px !important;
         width: auto !important;
-        max-width: 240px !important;
+        max-width: 260px !important;
         z-index: 999999 !important;
     }
     
-    /* Targets the button directly to secure a small, premium rounded pill */
     div[data-testid="stPopover"] > button {
         background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
         color: #ffffff !important;
-        border-radius: 50px !important;
-        padding: 10px 22px !important;
+        border-radius: 30px !important;
+        padding: 12px 24px !important;
         width: auto !important;
-        max-width: 240px !important;
-        height: auto !important;
+        max-width: 260px !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
-        box-shadow: 0 8px 24px rgba(37, 99, 235, 0.3) !important;
         border: none !important;
-        transition: transform 0.2s ease !important;
+        font-weight: 600 !important;
+        animation: float 3s ease-in-out infinite, pulse-glow 2s infinite;
     }
     div[data-testid="stPopover"] > button:hover {
-        transform: scale(1.03) translateY(-1px);
+        transform: scale(1.04) translateY(-1px) !important;
+        animation-play-state: paused !important;
     }
     
-    /* Hides default Streamlit dropdown arrows that stretch out text boxes */
-    div[data-testid="stPopover"] button svg {
+    /* Aggressively strip away the native down arrow icon */
+    div[data-testid="stPopover"] button svg, 
+    div[data-testid="stPopover"] button [data-testid="stIcon"] {
         display: none !important;
     }
     
     div[data-testid="stPopoverWindow"] {
-        width: 375px !important;
+        width: 385px !important;
         border-radius: 16px !important;
         box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15) !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- APP HEADER HERO BLOCK ---
+# --- PORTAL HEADER HERO BLOCK ---
 st.markdown("""
     <div class="portal-header">
         <h1 class="portal-title">SwiftSupport India</h1>
@@ -165,16 +138,14 @@ st.markdown("""
     """, unsafe_allow_html=True)
 st.markdown("---")
 
-# API GATEWAY
+# API GATEWAY INITIALIZATION
 if "OPENROUTER_API_KEY" in st.secrets:
     api_key = st.secrets["OPENROUTER_API_KEY"]
 else:
     st.error("Configuration Error: OPENROUTER_API_KEY is missing from Streamlit Secrets.")
     st.stop()
 
-client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
-
-# --- SIDEBAR PANEL (Native Icons Fixed) ---
+# --- SIDEBAR PANEL ---
 with st.sidebar:
     st.header("Operations Desk")
     st.markdown('<div class="status-badge"><div class="status-dot"></div>Fulfillment Active</div>', unsafe_allow_html=True)
@@ -186,47 +157,29 @@ with st.sidebar:
         else:
             st.caption("Logistics policy file not found.")
 
-# --- NAVIGATION FLOW: DROPDOWN FOR CORE TOOLS ---
-user_intent = st.selectbox(
-    "Select an issue category to begin execution:",
-    [
-        "Select your issue category...",
-        "Calculate Order Return & Restocking Fee",
-        "Track Dispatch Carrier & Delivery Network",
-        "Review Store Fulfillment Guidelines"
-    ]
-)
+# --- NAVIGATION FLOW: HORIZONTAL TABS ---
+tab_dashboard, tab_tools = st.tabs(["Dashboard Overview", "Operational Systems"])
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-base_system = (
-    "You are SwiftSupport India, an expert customer care agent specializing in retail orders and delivery logistics.\n"
-    "Never reference ACME, US shipping, or FedEx. All domestic Indian dispatches go via Delhivery or Blue Dart.\n"
-    "Answer queries clearly and professionally using the provided order guidelines."
-)
-
-# --- DYNAMIC LAYER CONTENT CARDS ---
-
-# DEFAULT LAYOUT: Dashboard landing block
-if user_intent == "Select your issue category...":
+# --- TAB 1: DASHBOARD OVERVIEW ---
+with tab_dashboard:
     with st.container(border=True):
         st.write("### Welcome to Order Operations")
         st.markdown(
-            "Please select an operational category from the menu selection field above to route your request. "
-            "The clearing engine automatically processes regional courier routing, product packaging values, "
-            "and centralized fulfillment handshakes."
+            "Use the **Operational Systems** tab above to access specialized calculation tools and check courier routing metrics. "
+            "For active system assistance or photo triage, launch **Swifty AI** using the floating action pill in the bottom right corner."
         )
 
-# VIEW 1: Return Processing Calculator
-elif user_intent == "Calculate Order Return & Restocking Fee":
+# --- TAB 2: OPERATIONAL SYSTEMS (FULLY WIRED) ---
+with tab_tools:
+    # Component A: Return Processing Calculator
     with st.container(border=True):
         st.subheader("Return Processing Calculator")
-        st.write("Calculate restocking fee adjustments based on the returned package's condition.")
+        st.write("Calculate restocking fee adjustments based on the returned package's structural condition.")
         
-        price = st.number_input("Original Order Value (INR):", min_value=0.0, value=1000.0, step=100.0)
-        condition = st.radio("Returned Parcel Packaging Condition:", ["Sealed / Original Condition", "Opened / Damaged Packaging Box"])
+        price = st.number_input("Original Order Value (INR):", min_value=0.0, value=1000.0, step=100.0, key="calc_price_input")
+        condition = st.radio("Returned Parcel Packaging Condition:", ["Sealed / Original Condition", "Opened / Damaged Packaging Box"], key="calc_cond_input")
         
-        if st.button("Process Return Valuation", type="primary"):
+        if st.button("Process Return Valuation", type="primary", key="run_valuation_btn"):
             is_damaged = condition == "Opened / Damaged Packaging Box"
             fee = domain_tools.calculate_restocking_fee(price, is_damaged)
             total_refund = price - fee
@@ -236,15 +189,14 @@ elif user_intent == "Calculate Order Return & Restocking Fee":
             c1.metric("Restocking Fee Deduction", f"₹{fee:,.2f}")
             c2.metric("Net Refund Issued", f"₹{total_refund:,.2f}")
 
-# VIEW 2: Dispatch Carrier Finder
-elif user_intent == "Track Dispatch Carrier & Delivery Network":
+    # Component B: Dispatch Routing Engine
     with st.container(border=True):
         st.subheader("Dispatch Routing Engine")
         st.write("Look up the designated logistics carrier assigned to transport orders to your target destination.")
         
-        dest = st.text_input("Enter Delivery Destination (City or Country):", placeholder="e.g. Mumbai")
+        dest = st.text_input("Enter Delivery Destination (City or Country):", placeholder="e.g. Mumbai", key="router_dest_input")
         
-        if st.button("Route Shipment", type="primary") and dest:
+        if st.button("Route Shipment", type="primary", key="run_routing_btn") and dest:
             st.markdown("---")
             if any(city in dest.lower() for city in ["mumbai", "delhi", "bengaluru", "chennai", "india"]):
                 st.info("Designated Domestic Courier: **Delhivery Express / Blue Dart Network**")
@@ -252,34 +204,21 @@ elif user_intent == "Track Dispatch Carrier & Delivery Network":
                 partner = domain_tools.evaluate_shipping_carrier(dest)
                 st.info(f"Designated Export Courier: **{partner} Logistics Hub**")
 
-# VIEW 3: Fulfillment Manual Guidelines
-elif user_intent == "Review Store Fulfillment Guidelines":
-    with st.container(border=True):
-        st.subheader("Store Fulfillment Guidelines")
-        st.write("Official return processing timelines and courier constraints sourced directly from the shipping database.")
-        st.markdown("---")
-        policy = knowledge_rag.retrieve_domain_context("return policy window")
-        st.info(policy)
-
-
 # =========================================================================
-# COMPACT FLOATING ASSISTANT WIDGET (Bottom Right Corner)
+# MULTI-MODAL MULTI-AGENT FLOATING WORKSPACE (Swifty AI Popover)
 # =========================================================================
-with st.popover("💬 Try Swifty AI"):
-    st.markdown("### 🤖 Swifty AI Support")
-    st.write("Select a quick-inquiry chip or submit an order question below:")
+with st.popover("🤖 Try Swifty AI for assistance"):
+    st.markdown("### 🤖 Swifty AI Agent Network")
+    st.caption("Powered by automated text routing and multi-modal vision triage.")
     st.markdown("---")
     
-    chip_col1, chip_col2 = st.columns(2)
-    chosen_suggestion = None
+    # Week 2: Multi-Modal File Uploader Integration
+    attached_file = st.file_uploader(
+        "Attach photo evidence (e.g., damaged boxes, barcodes):", 
+        type=["png", "jpg", "jpeg"],
+        key="agent_image_uploader"
+    )
     
-    with chip_col1:
-        if st.button("⏱️ Return Timeline", type="secondary"):
-            chosen_suggestion = "What is the official return policy timeline window?"
-    with chip_col2:
-        if st.button("📦 Damaged Box Fee", type="secondary"):
-            chosen_suggestion = "What is the fee if my product packaging box is missing?"
-            
     st.markdown("---")
     
     if "messages" not in st.session_state:
@@ -292,35 +231,33 @@ with st.popover("💬 Try Swifty AI"):
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
                 
-    chat_input = st.chat_input("Ask a question about your order...")
-    active_query = chat_input or chosen_suggestion
+    chat_input = st.chat_input("Ask a logistics or financial query...")
     
-    if active_query:
+    if chat_input:
+        st.session_state.messages.append({"role": "user", "content": chat_input})
         with history_slot:
             with st.chat_message("user"):
-                st.markdown(active_query)
+                st.markdown(chat_input)
         
-        with st.spinner("Accessing fulfillment files..."):
-            ctx = knowledge_rag.retrieve_domain_context(active_query)
-            sys_prompt = f"{base_system}\n\nPOLICY CONTEXT:\n{ctx}"
-            
-            try:
-                res = client.chat.completions.create(
-                    model=PRIMARY_MODEL,
-                    messages=[{"role": "system", "content": sys_prompt}, {"role": "user", "content": active_query}]
+        # Process queries via our external multi-agent orchestration module
+        with st.spinner("Routing query to designated specialist agent..."):
+            if attached_file is not None:
+                img_bytes = attached_file.read()
+                mime_type = attached_file.type
+                agent_response = agents_engine.process_agent_workflow(
+                    api_key=api_key,
+                    user_query=chat_input,
+                    uploaded_image_bytes=img_bytes,
+                    image_mime_type=mime_type
                 )
-                ans = res.choices[0].message.content
-            except:
-                res = client.chat.completions.create(
-                    model=FALLBACK_MODEL,
-                    messages=[{"role": "system", "content": sys_prompt}, {"role": "user", "content": active_query}]
+            else:
+                agent_response = agents_engine.process_agent_workflow(
+                    api_key=api_key,
+                    user_query=chat_input
                 )
-                ans = res.choices[0].message.content
-        
+                
+        st.session_state.messages.append({"role": "assistant", "content": agent_response})
         with history_slot:
             with st.chat_message("assistant"):
-                st.markdown(ans)
-                
-        st.session_state.messages.append({"role": "user", "content": active_query})
-        st.session_state.messages.append({"role": "assistant", "content": ans})
+                st.markdown(agent_response)
         st.rerun()
